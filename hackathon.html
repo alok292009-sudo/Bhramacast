@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrahmaCast - Flood Forecasting System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        header p {
+            margin-top: 0.5rem;
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+
+        .card .label {
+            font-size: 1rem;
+            color: #888;
+        }
+
+        .risk-low { color: #22c55e; }
+        .risk-medium { color: #f59e0b; }
+        .risk-high { color: #ef4444; }
+
+        .bg-low { background: #22c55e; }
+        .bg-medium { background: #f59e0b; }
+        .bg-high { background: #ef4444; }
+
+        #map {
+            height: 500px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .legend {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .legend h4 {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+        }
+
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .filters h3 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+
+        .district-data {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .district-data h3 {
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .district-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .district-card {
+            border: 1px solid #e5e7eb;
+            padding: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .district-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .district-card.highlighted {
+            border: 2px solid #2a5298;
+            box-shadow: 0 4px 12px rgba(42,82,152,0.2);
+        }
+
+        .district-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .district-card .info {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.3rem 0;
+            font-size: 0.9rem;
+        }
+
+        .district-card .info .key {
+            color: #666;
+        }
+
+        .district-card .risk-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .chatbot {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 350px;
+            max-height: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .chatbot.minimized {
+            max-height: 60px;
+            overflow: hidden;
+        }
+
+        .chatbot-header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .chatbot-header h4 {
+            font-size: 1rem;
+        }
+
+        .chatbot-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .chatbot-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            max-height: 350px;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.7rem;
+            border-radius: 8px;
+            max-width: 85%;
+        }
+
+        .message.bot {
+            background: #e5e7eb;
+            align-self: flex-start;
+        }
+
+        .message.user {
+            background: #2a5298;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .chatbot-input {
+            display: flex;
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .chatbot-input input {
+            flex: 1;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-right: 0.5rem;
+        }
+
+        .chatbot-input button {
+            padding: 0.6rem 1rem;
+            background: #2a5298;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .chatbot-input button:hover {
+            background: #1e3c72;
+        }
+
+        .report-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .report-section h3 {
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .submit-btn {
+            background: #2a5298;
+            color: white;
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .submit-btn:hover {
+            background: #1e3c72;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .chatbot {
+                width: 90%;
+                right: 5%;
+                bottom: 1rem;
+            }
+
+            .filter-row {
+                flex-direction: column;
+            }
+
+            .district-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>BrahmaCast</h1>
+        <p>AI-Powered Flood Forecasting System for Assam</p>
+    </header>
+
+    <div class="container">
+        <div class="dashboard">
+            <div class="card">
+                <h3>Flood Probability</h3>
+                <div class="value" id="flood-probability">68%</div>
+                <div class="label">Next 12-24 Hours</div>
+            </div>
+            <div class="card">
+                <h3>Risk Level</h3>
+                <div class="value risk-medium" id="risk-level">Medium</div>
+                <div class="label">Current Status</div>
+            </div>
+            <div class="card">
+                <h3>Forecast Horizon</h3>
+                <div class="value" style="font-size: 2rem;">12-24</div>
+                <div class="label">Hours Ahead</div>
+            </div>
+            <div class="card">
+                <h3>Last Updated</h3>
+                <div class="value" style="font-size: 1.5rem;" id="last-updated">Just now</div>
+                <div class="label">Real-time Data</div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h4>Risk Level Legend</h4>
+            <div class="legend-item">
+                <div class="legend-color bg-low"></div>
+                <span>Low Risk (0-40%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color bg-medium"></div>
+                <span>Medium Risk (41-70%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color bg-high"></div>
+                <span>High Risk (71-100%)</span>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="filters">
+            <h3>Filter Districts</h3>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Search District</label>
+                    <input type="text" id="search-district" placeholder="Search by name...">
+                </div>
+                <div class="filter-group">
+                    <label>Risk Level</label>
+                    <select id="filter-risk">
+                        <option value="all">All</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Rainfall (24h)</label>
+                    <select id="filter-rainfall">
+                        <option value="all">All</option>
+                        <option value="low">&lt;50 mm</option>
+                        <option value="medium">50-100 mm</option>
+                        <option value="high">&gt;100 mm</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>River Status</label>
+                    <select id="filter-river">
+                        <option value="all">All</option>
+                        <option value="normal">Normal</option>
+                        <option value="rising">Rising</option>
+                        <option value="danger">Danger</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="district-data">
+            <h3>District-wise Flood Data</h3>
+            <div class="district-grid" id="district-grid"></div>
+        </div>
+
+        <div class="report-section">
+            <h3>Submit Flood Report</h3>
+            <div class="alert success" id="report-alert">
+                Report submitted successfully! Thank you for your contribution.
+            </div>
+            <form id="report-form">
+                <div class="form-group">
+                    <label>Location (District or Area)</label>
+                    <input type="text" id="report-location" required placeholder="e.g., Guwahati, Kamrup">
+                </div>
+                <div class="form-group">
+                    <label>Issue Type</label>
+                    <select id="report-issue" required>
+                        <option value="">Select issue type</option>
+                        <option value="flooding">Flooding</option>
+                        <option value="water-rising">Water level rising</option>
+                        <option value="road-blockage">Road blockage</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea id="report-description" placeholder="Provide additional details..."></textarea>
+                </div>
+                <button type="submit" class="submit-btn">Submit Report</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="chatbot minimized" id="chatbot">
+        <div class="chatbot-header" onclick="toggleChatbot()">
+            <h4>Flood Assistant</h4>
+            <button class="chatbot-toggle" id="chatbot-toggle">▼</button>
+        </div>
+        <div class="chatbot-messages" id="chatbot-messages">
+            <div class="message bot">Hello! I can help you with flood-related questions. Ask me about current flood risks, safety guidelines, or what different risk levels mean.</div>
+        </div>
+        <div class="chatbot-input">
+            <input type="text" id="chatbot-input" placeholder="Ask about floods...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const districtData = [
+            { name: 'Kamrup', lat: 26.1445, lng: 91.7362, probability: 68, risk: 'medium', rainfall: 85, river: 'rising', updated: '10 mins ago' },
+            { name: 'Dhemaji', lat: 27.4833, lng: 94.5667, probability: 82, risk: 'high', rainfall: 125, river: 'danger', updated: '15 mins ago' },
+            { name: 'Barpeta', lat: 26.3232, lng: 91.0074, probability: 75, risk: 'high', rainfall: 98, river: 'danger', updated: '8 mins ago' },
+            { name: 'Nagaon', lat: 26.3469, lng: 92.6836, probability: 58, risk: 'medium', rainfall: 72, river: 'rising', updated: '12 mins ago' },
+            { name: 'Lakhimpur', lat: 27.2333, lng: 94.1000, probability: 45, risk: 'medium', rainfall: 55, river: 'rising', updated: '20 mins ago' },
+            { name: 'Jorhat', lat: 26.7509, lng: 94.2037, probability: 32, risk: 'low', rainfall: 38, river: 'normal', updated: '18 mins ago' },
+            { name: 'Dibrugarh', lat: 27.4728, lng: 94.9120, probability: 28, risk: 'low', rainfall: 42, river: 'normal', updated: '25 mins ago' },
+            { name: 'Golaghat', lat: 26.5159, lng: 93.9619, probability: 35, risk: 'low', rainfall: 45, river: 'normal', updated: '22 mins ago' },
+            { name: 'Bongaigaon', lat: 26.4816, lng: 90.5577, probability: 71, risk: 'high', rainfall: 110, river: 'danger', updated: '5 mins ago' },
+            { name: 'Cachar', lat: 24.8333, lng: 92.7789, probability: 62, risk: 'medium', rainfall: 78, river: 'rising', updated: '14 mins ago' },
+            { name: 'Morigaon', lat: 26.2526, lng: 92.3427, probability: 54, risk: 'medium', rainfall: 68, river: 'rising', updated: '17 mins ago' },
+            { name: 'Sonitpur', lat: 26.6338, lng: 92.8028, probability: 38, risk: 'low', rainfall: 48, river: 'normal', updated: '30 mins ago' }
+        ];
+
+        let floodReports = [];
+        let map;
+        let markers = {};
+
+        function initMap() {
+            map = L.map('map').setView([26.2006, 92.9376], 7);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            districtData.forEach(district => {
+                const color = district.risk === 'low' ? '#22c55e' : district.risk === 'medium' ? '#f59e0b' : '#ef4444';
+                
+                const marker = L.circleMarker([district.lat, district.lng], {
+                    radius: 12,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <strong>${district.name}</strong><br>
+                    Flood Probability: ${district.probability}%<br>
+                    Risk Level: ${district.risk.toUpperCase()}<br>
+                    Rainfall: ${district.rainfall} mm<br>
+                    River: ${district.river.toUpperCase()}
+                `);
+
+                marker.on('click', function() {
+                    highlightDistrict(district.name);
+                });
+
+                markers[district.name] = marker;
+            });
+        }
+
+        function renderDistricts(data = districtData) {
+            const grid = document.getElementById('district-grid');
+            grid.innerHTML = '';
+
+            data.forEach(district => {
+                const card = document.createElement('div');
+                card.className = 'district-card';
+                card.dataset.name = district.name;
+                
+                const riskClass = `risk-${district.risk}`;
+                const riskBg = `bg-${district.risk}`;
+                
+                card.innerHTML = `
+                    <h4>${district.name}</h4>
+                    <div class="info">
+                        <span class="key">Flood Probability:</span>
+                        <span class="${riskClass}">${district.probability}%</span>
+                    </div>
+                    <div class="info">
+                        <span class="key">Risk Level:</span>
+                        <span class="risk-badge ${riskBg}">${district.risk.toUpperCase()}</span>
+                    </div>
+                    <div class="info">
+                        <span class="key">Rainfall (24h):</span>
+                        <span>${district.rainfall} mm</span>
+                    </div>
+                    <div class="info">
+                        <span class="key">River Status:</span>
+                        <span>${district.river.toUpperCase()}</span>
+                    </div>
+                    <div class="info">
+                        <span class="key">Updated:</span>
+                        <span>${district.updated}</span>
+                    </div>
+                `;
+
+                card.addEventListener('click', function() {
+                    if (markers[district.name]) {
+                        map.setView([district.lat, district.lng], 10);
+                        markers[district.name].openPopup();
+                    }
+                    highlightDistrict(district.name);
+                });
+
+                grid.appendChild(card);
+            });
+        }
+
+        function highlightDistrict(name) {
+            document.querySelectorAll('.district-card').forEach(card => {
+                card.classList.remove('highlighted');
+            });
+            const card = document.querySelector(`.district-card[data-name="${name}"]`);
+            if (card) {
+                card.classList.add('highlighted');
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('search-district').value.toLowerCase();
+            const riskFilter = document.getElementById('filter-risk').value;
+            const rainfallFilter = document.getElementById('filter-rainfall').value;
+            const riverFilter = document.getElementById('filter-river').value;
+
+            const filtered = districtData.filter(district => {
+                const matchSearch = district.name.toLowerCase().includes(search);
+                const matchRisk = riskFilter === 'all' || district.risk === riskFilter;
+                
+                let matchRainfall = true;
+                if (rainfallFilter === 'low') matchRainfall = district.rainfall < 50;
+                else if (rainfallFilter === 'medium') matchRainfall = district.rainfall >= 50 && district.rainfall <= 100;
+                else if (rainfallFilter === 'high') matchRainfall = district.rainfall > 100;
+                
+                const matchRiver = riverFilter === 'all' || district.river === riverFilter;
+
+                return matchSearch && matchRisk && matchRainfall && matchRiver;
+            });
+
+            renderDistricts(filtered);
+        }
+
+        document.getElementById('search-district').addEventListener('input', applyFilters);
+        document.getElementById('filter-risk').addEventListener('change', applyFilters);
+        document.getElementById('filter-rainfall').addEventListener('change', applyFilters);
+        document.getElementById('filter-river').addEventListener('change', applyFilters);
+
+        document.getElementById('report-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const report = {
+                location: document.getElementById('report-location').value,
+                issue: document.getElementById('report-issue').value,
+                description: document.getElementById('report-description').value,
+                timestamp: new Date().toLocaleString()
+            };
+
+            floodReports.push(report);
+            
+            document.getElementById('report-alert').style.display = 'block';
+            this.reset();
+
+            setTimeout(() => {
+                document.getElementById('report-alert').style.display = 'none';
+            }, 5000);
+        });
+
+        function toggleChatbot() {
+            const chatbot = document.getElementById('chatbot');
+            const toggle = document.getElementById('chatbot-toggle');
+            chatbot.classList.toggle('minimized');
+            toggle.textContent = chatbot.classList.contains('minimized') ? '▼' : '▲';
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatbot-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            const messagesDiv = document.getElementById('chatbot-messages');
+            
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.textContent = message;
+            messagesDiv.appendChild(userMsg);
+
+            input.value = '';
+
+            setTimeout(() => {
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message bot';
+                botMsg.textContent = getBotResponse(message);
+                messagesDiv.appendChild(botMsg);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }, 500);
+
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function getBotResponse(msg) {
+            const lower = msg.toLowerCase();
+            
+            if (lower.includes('current') && (lower.includes('risk') || lower.includes('flood'))) {
+                return 'Current overall flood probability is 68% with a Medium risk level. High-risk areas include Dhemaji, Barpeta, and Bongaigaon.';
+            }
+            
+            if (lower.includes('low risk') || lower.includes('what is low')) {
+                return 'Low Risk (0-40%): Minimal chance of flooding. Normal precautions advised. Monitor weather updates regularly.';
+            }
+            
+            if (lower.includes('medium risk') || lower.includes('what is medium')) {
+                return 'Medium Risk (41-70%): Moderate flood possibility. Stay alert, prepare emergency supplies, and avoid low-lying areas.';
+            }
+            
+            if (lower.includes('high risk') || lower.includes('what is high')) {
+                return 'High Risk (71-100%): Significant flood danger. Evacuate if advised, move to higher ground, and follow official instructions immediately.';
+            }
+            
+            if (lower.includes('safety') || lower.includes('guideline') || lower.includes('prepare')) {
+                return 'Safety Guidelines: 1) Keep emergency kit ready 2) Stay informed via official channels 3) Avoid walking/driving through water 4) Move valuables to higher floors 5) Follow evacuation orders 6) Stay away from riverbanks.';
+            }
+            
+            if (lower.includes('flood') || lower.includes('water') || lower.includes('rain') || lower.includes('river') || lower.includes('district')) {
+                return 'Please be more specific. You can ask about current flood risk, what risk levels mean, specific districts, or safety guidelines.';
+            }
+            
+            return 'I can only answer flood-related questions. Please ask about current flood risks, risk level meanings, or flood safety guidelines.';
+        }
+
+        document.getElementById('chatbot-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        function updateDashboard() {
+            const highRisk = districtData.filter(d => d.risk === 'high').length;
+            const avgProbability = Math.round(districtData.reduce((sum, d) => sum + d.probability, 0) / districtData.length);
+            
+            document.getElementById('flood-probability').textContent = avgProbability + '%';
+            
+            const riskLevel = avgProbability > 70 ? 'high' : avgProbability > 40 ? 'medium' : 'low';
+            const riskText = avgProbability > 70 ? 'High' : avgProbability > 40 ? 'Medium' : 'Low';
+            
+            const riskEl = document.getElementById('risk-level');
+            riskEl.textContent = riskText;
+            riskEl.className = 'value risk-' + riskLevel;
+        }
+
+        window.onload = function() {
+            initMap();
+            renderDistricts();
+            updateDashboard();
+        };
+    </script>
+</body>
+</html>
